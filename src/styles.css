@@ -253,9 +253,7 @@ body {
 
 .toolbar {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
+  align-items: stretch;
   height: var(--toolbar-h);
   background: var(--panel);
   border-top: 1px solid var(--border);
@@ -265,50 +263,63 @@ body {
   flex: 1;
 }
 
+/* Flat, full-height segments divided by solid lines rather than boxed buttons. */
 .btn {
-  background: #21262d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
   color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 7px 14px;
+  border: 0;
+  border-radius: 0;
+  padding: 0 20px;
   font-size: 13px;
+  font-weight: 500;
   font-family: inherit;
   cursor: pointer;
 }
 
+.toolbar .btn {
+  border-right: 1px solid var(--border);
+}
+
+.toolbar-gap + .btn {
+  border-left: 1px solid var(--border);
+  border-right: 0;
+}
+
+.topbar .btn {
+  align-self: stretch;
+  margin-right: -16px;
+  border-left: 1px solid var(--border);
+}
+
 .btn:hover:not(:disabled) {
-  background: #2b323b;
+  background: #1f252d;
+}
+
+.btn:active:not(:disabled) {
+  background: #262c35;
+}
+
+.btn:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
 }
 
 .btn:disabled {
-  opacity: 0.4;
+  color: var(--dim);
+  opacity: 0.5;
   cursor: default;
 }
 
-.btn-primary {
-  background: var(--accent);
-  border-color: transparent;
-  color: #fff;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #4b93f8;
-}
-
-.btn-run:not(:disabled) {
-  color: var(--green);
-  border-color: rgba(63, 185, 80, 0.4);
-}
-
 .btn-stop.is-armed {
-  background: var(--red);
-  border-color: transparent;
-  color: #fff;
+  color: var(--red);
   font-weight: 600;
 }
 
 .btn-stop.is-armed:hover {
-  background: #ff6a60;
+  background: rgba(248, 81, 73, 0.1);
 }
 
 /* ---------- narrow viewports: stack editor over console ---------- */
@@ -324,14 +335,23 @@ body {
     border-top: 1px solid var(--border);
   }
 
-  .toolbar {
-    height: auto;
-    padding: 8px 12px;
-    flex-wrap: wrap;
+  /* Segments share the bar evenly instead of wrapping. */
+  .toolbar-gap {
+    display: none;
   }
 
-  .toolbar-gap {
-    flex: 1 0 0;
+  .toolbar .btn {
+    flex: 1;
+    min-width: 0;
+    padding: 0 8px;
+  }
+
+  .toolbar .btn:last-child {
+    border-right: 0;
+  }
+
+  .toolbar-gap + .btn {
+    border-left: 0;
   }
 }
 
