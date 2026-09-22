@@ -4,9 +4,10 @@
  * stay unaware of each other.
  */
 
+import { createBlockEditor } from './blockspace.ts';
 import { ConsolePanel } from './console.ts';
 import { createEditor, DEFAULT_PROGRAM } from './editor.ts';
-import { downloadPython, hashContents, pickPythonFile } from './files.ts';
+import { downloadBlocks, downloadPython, hashContents, isBlocksFile, pickFile } from './files.ts';
 import { Repl, ReplConnectionLostError } from './repl.ts';
 import {
   describePort,
@@ -46,6 +47,7 @@ if (!isWebSerialSupported()) {
 function start(): void {
   const consolePanel = new ConsolePanel(byId('console'), byId('console-notice'));
   const editor = createEditor(byId('editor'), { onRun: () => void handleRun() });
+  const blocks = createBlockEditor(byId('blocks'));
   const fileInput = byId<HTMLInputElement>('file-input');
   const repl = new Repl();
 
@@ -62,6 +64,9 @@ function start(): void {
 
   /** Hash of the contents as last saved or loaded; drives the unsaved check. */
   let savedHash = hashContents(DEFAULT_PROGRAM);
+  let savedBlocksHash = hashContents(JSON.stringify(blocks.save()));
+  /** Block mode is the default; Run, Download and Upload follow the open tab. */
+  let mode: 'blocks' | 'python' = 'blocks';
   let activePort: SerialPort | null = null;
   /** Suppresses "connection lost" noise when the user asked to disconnect. */
   let closingOnPurpose = false;
@@ -69,6 +74,55 @@ function start(): void {
   let running = false;
 
   consolePanel.writeLine('system', 'AXEIS IDE ready. Plug in the robot and click Connect.');
+
+  const consolePane = byId('console-pane');
+  const consoleToggle = byId<HTMLButtonElement>('console-toggle');
+  const consoleBody = byId('console-body');
+  const consoleUnread = byId('console-unread');
+
+  function setConsoleOpen(open: boolean): void {
+    consolePane.dataset['open'] = String(open);
+    consoleToggle.setAttribute('aria-expanded', String(open));
+    consoleBody.hidden = !open;
+    if (open) {
+      consoleUnread.hidden = true;
+      consolePanel.scrollToEnd();
+    }
+  }
+
+  // Program output while the drawer is shut gets a badge; status chatter does not.
+  consolePanel.onOutput = (stream) => {
+    if (consoleBody.hidden && stream !== 'system') consoleUnread.hidden = false;
+  };
+
+  const tabBlocks = byId<HTMLButtonElement>('tab-blocks');
+  const tabPython = byId<HTMLButtonElement>('tab-python');
+  const toPython = byId<HTMLButtonElement>('to-python');
+
+  function setMode(next: 'blocks' | 'python'): void {
+    mode = next;
+    const isBlocks = next === 'blocks';
+    tabBlocks.setAttribute('aria-selected', String(isBlocks));
+    tabPython.setAttribute('aria-selected', String(!isBlocks));
+    byId('blocks').hidden = !isBlocks;
+    byId('editor').hidden = isBlocks;
+    toPython.hidden = !isBlocks;
+    if (isBlocks) blocks.resize();
+    else editor.focus();
+  }
+
+  function pythonIsDirty(): boolean {
+    return hashContents(editor.getValue()) !== savedHash;
+  }
+
+  function handleOpenAsPython(): void {
+    if (pythonIsDirty() && !window.confirm('Replace the Python tab? Unsaved changes there will be lost.')) {
+      return;
+    }
+    editor.setValue(blocks.getProgram().code);
+    setMode('python');
+    consolePanel.writeLine('system', 'Copied the Python made by your blocks into the Python tab.');
+  }
 
   async function handleConnect(): Promise<void> {
     if (activePort) {
@@ -142,7 +196,22 @@ function start(): void {
     // Spec 8.8: the button state makes this unreachable, but never trust it.
     if (!repl.isConnected() || repl.isBusy()) return;
 
-    const code = editor.getValue();
+    let code: string;
+    if (mode === 'blocks') {
+      const program = blocks.getProgram();
+      if (!program.hasStart) {
+        setConsoleOpen(true);
+        consolePanel.writeLine(
+          'system',
+          'Nothing to run: drag "when Run clicked" from Events and snap blocks under it.',
+        );
+        return;
+      }
+      code = program.code;
+    } else {
+      code = editor.getValue();
+    }
+    setConsoleOpen(true);
     ui.set('executing');
     consolePanel.writeLine('action', '▶ Running...');
 
@@ -184,6 +253,14 @@ function start(): void {
   }
 
   function handleDownload(): void {
+    if (mode === 'blocks') {
+      const state = blocks.save();
+      const filename = downloadBlocks(state);
+      if (filename === null) return;
+      savedBlocksHash = hashContents(JSON.stringify(state));
+      consolePanel.writeLine('system', `Saved ${filename}`);
+      return;
+    }
     const contents = editor.getValue();
     const filename = downloadPython(contents);
     if (filename === null) return; // spec 6.5: cancelled prompt is a no-op
@@ -194,20 +271,42 @@ function start(): void {
   async function handleUpload(): Promise<void> {
     let file;
     try {
-      file = await pickPythonFile(fileInput);
+      file = await pickFile(fileInput);
     } catch (err) {
       consolePanel.writeLine('system', `Could not read that file: ${message(err)}`);
       return;
     }
     if (!file) return;
 
-    const dirty = hashContents(editor.getValue()) !== savedHash;
-    if (dirty && !window.confirm('Replace current editor contents? Unsaved changes will be lost.')) {
+    if (isBlocksFile(file.name)) {
+      let state: object;
+      try {
+        state = JSON.parse(file.text) as object;
+      } catch {
+        consolePanel.writeLine('system', `${file.name} is not a block program.`);
+        return;
+      }
+      const dirty = hashContents(JSON.stringify(blocks.save())) !== savedBlocksHash;
+      if (dirty && !window.confirm('Replace your blocks? Unsaved changes will be lost.')) return;
+      setMode('blocks');
+      try {
+        blocks.load(state);
+      } catch (err) {
+        consolePanel.writeLine('system', `${file.name} is not a block program: ${message(err)}`);
+        return;
+      }
+      savedBlocksHash = hashContents(JSON.stringify(blocks.save()));
+      consolePanel.writeLine('system', `Loaded ${file.name} — press Run to execute it.`);
+      return;
+    }
+
+    if (pythonIsDirty() && !window.confirm('Replace current editor contents? Unsaved changes will be lost.')) {
       return;
     }
 
     editor.setValue(file.text);
     savedHash = hashContents(file.text);
+    setMode('python');
     // Spec 6.6 / section 11: loading a file never runs it.
     consolePanel.writeLine('system', `Loaded ${file.name} — press Run to execute it.`);
     editor.focus();
@@ -219,6 +318,17 @@ function start(): void {
   byId<HTMLButtonElement>('download').addEventListener('click', handleDownload);
   byId<HTMLButtonElement>('upload').addEventListener('click', () => void handleUpload());
   byId<HTMLButtonElement>('clear').addEventListener('click', () => consolePanel.clear());
+  tabBlocks.addEventListener('click', () => setMode('blocks'));
+  tabPython.addEventListener('click', () => setMode('python'));
+  toPython.addEventListener('click', handleOpenAsPython);
+  consoleToggle.addEventListener('click', () => setConsoleOpen(consoleBody.hidden));
+
+  // Ctrl-Enter / Cmd-Enter runs in block mode too (the Python editor handles its own).
+  document.addEventListener('keydown', (event) => {
+    if (mode !== 'blocks' || event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return;
+    event.preventDefault();
+    void handleRun();
+  });
 
   // Spec 6.8: never auto-reconnect, just report and reset.
   onSerialDisconnect((port) => {

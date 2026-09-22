@@ -1,10 +1,12 @@
 /**
- * Moving .py files between the editor and the user's laptop. Nothing here
- * touches the robot.
+ * Moving programs (.py text or .json blocks) between the IDE and the user's
+ * laptop. Nothing here touches the robot.
  */
 
 const DEFAULT_FILENAME = 'robot_program.py';
+const DEFAULT_BLOCKS_FILENAME = 'robot_program.json';
 const PY_MIME = 'text/x-python';
+const JSON_MIME = 'application/json';
 
 export interface LoadedFile {
   name: string;
@@ -28,14 +30,27 @@ export function hashContents(text: string): string {
  * Returns the filename used, or null if the user cancelled the prompt.
  */
 export function downloadPython(contents: string): string | null {
-  const answer = window.prompt('Save program as:', DEFAULT_FILENAME);
+  return saveAs(contents, DEFAULT_FILENAME, '.py', PY_MIME);
+}
+
+/** Save a block program as JSON. Returns the filename, or null if cancelled. */
+export function downloadBlocks(state: object): string | null {
+  return saveAs(JSON.stringify(state, null, 2), DEFAULT_BLOCKS_FILENAME, '.json', JSON_MIME);
+}
+
+export function isBlocksFile(name: string): boolean {
+  return name.toLowerCase().endsWith('.json');
+}
+
+function saveAs(contents: string, defaultName: string, extension: string, mime: string): string | null {
+  const answer = window.prompt('Save program as:', defaultName);
   if (answer === null) return null;
 
   const trimmed = answer.trim();
-  const name = trimmed.length === 0 ? DEFAULT_FILENAME : trimmed;
-  const filename = name.toLowerCase().endsWith('.py') ? name : `${name}.py`;
+  const name = trimmed.length === 0 ? defaultName : trimmed;
+  const filename = name.toLowerCase().endsWith(extension) ? name : `${name}${extension}`;
 
-  const url = URL.createObjectURL(new Blob([contents], { type: PY_MIME }));
+  const url = URL.createObjectURL(new Blob([contents], { type: mime }));
   try {
     const anchor = document.createElement('a');
     anchor.href = url;
@@ -51,7 +66,7 @@ export function downloadPython(contents: string): string | null {
  * Open the file picker and read the chosen file as text.
  * Resolves null if the user picked nothing.
  */
-export function pickPythonFile(input: HTMLInputElement): Promise<LoadedFile | null> {
+export function pickFile(input: HTMLInputElement): Promise<LoadedFile | null> {
   return new Promise((resolve, reject) => {
     const done = (): void => {
       input.removeEventListener('change', onChange);

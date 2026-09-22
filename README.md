@@ -1,8 +1,8 @@
 # AXEIS IDE
 
-A browser-based Python IDE for the AXEIS ESP32 robot. Write Python in the
-editor, hit Run, and it executes on the robot over USB while stdout and stderr
-stream back into the console panel.
+A browser-based IDE for the AXEIS ESP32 robot. Snap together Scratch-style
+blocks (the default) or write Python, hit Run, and it executes on the robot over
+USB while stdout and stderr stream back into the console panel.
 
 No backend, no accounts, no database, no wifi. It is a static page that talks to
 the board through the browser's Web Serial API.
@@ -35,13 +35,38 @@ npm run preview  # serve dist/ locally
 
 1. Plug in the robot and click **Connect**, then pick the serial device. The
    status dot turns green.
-2. Write Python in the editor.
-3. **Run** (or Ctrl-Enter / Cmd-Enter) executes the editor contents on the robot.
+2. Build a program in the **Blocks** tab (the default) under a
+   **when Run clicked** block, or switch to the **Python** tab and type.
+3. **Run** (or Ctrl-Enter / Cmd-Enter) executes the open tab on the robot. The
+   console drawer at the bottom opens itself; click its bar (arrow on the right)
+   to open or close it at any time.
 4. **Stop** sends Ctrl-C and interrupts the running program.
-5. **Download** saves the editor contents to your laptop as a `.py` file.
-   **Upload** loads a `.py` file back into the editor — it never runs it for you.
-6. **Disconnect** returns the board to the friendly REPL, so `mpremote` or
+5. **Download** saves the open tab: blocks as `.json`, Python as `.py`.
+   **Upload** takes either and opens the matching tab — it never runs it for you.
+6. **Open as Python** (Blocks tab) copies the Python your blocks make into the
+   Python tab, so you can see or keep editing it.
+7. **Disconnect** returns the board to the friendly REPL, so `mpremote` or
    Thonny can pick it up straight afterwards.
+
+### Block mode
+
+Blocks are grouped like Scratch: Events, Control, Motors, Console, Lights,
+Sound, Pins, Sensing, Operators, Variables, Lists and My Blocks. Only scripts
+under **when Run clicked** (plus My Blocks definitions) run; loose blocks turn
+grey and are skipped. The workspace autosaves in the browser.
+
+Hardware blocks take pin numbers, so they fit any wiring:
+
+- **Motors**: two pins per motor (DRV8833 / L9110S / L298N-style IN1 IN2). Swap
+  a pair if that wheel runs backwards. Motors and the buzzer are always switched
+  off when a program ends or is stopped.
+- **Lights**: a plain LED on a pin, or a NeoPixel / WS2812 strip.
+- **Sound**: a passive buzzer on a PWM pin.
+- **Sensing**: buttons (pin to GND), digital and analog pins, HC-SR04 distance,
+  ESP32 touch pins and a timer.
+
+`src/blocks.ts` defines the blocks and toolbox; `src/blockgen.ts` turns them
+into MicroPython (stock ESP32 firmware, `machine` and `neopixel` only).
 
 ### What v1 does not do
 
@@ -73,11 +98,15 @@ index.html          the IDE page
 src/main.ts         entry — wires the modules to the DOM
 src/serial.ts       Web Serial port lifecycle
 src/repl.ts         raw REPL protocol
-src/editor.ts       CodeMirror 6 setup
+src/editor.ts       CodeMirror 6 setup (Python tab)
+src/blockspace.ts   Blockly workspace setup (Blocks tab), autosave
+src/blocks.ts       block definitions, colours and toolbox
+src/blockgen.ts     blocks -> MicroPython
 src/console.ts      output panel rendering
-src/files.ts        download / upload .py
+src/files.ts        download / upload .py and .json
 src/ui.ts           button state machine and status indicator
 src/styles.css      all styling
+public/blockly-media  Blockly's icons and sounds, served locally
 dev/                manual test pages, dev server only (not built)
 ```
 

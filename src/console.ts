@@ -26,6 +26,8 @@ export class ConsolePanel {
   /** The trailing line that has not been ended by a newline yet. */
   private openLine: HTMLElement | null = null;
   private openStream: ConsoleStream | null = null;
+  /** Called for each write once it is on screen, e.g. to flag it while the drawer is shut. */
+  onOutput: ((stream: ConsoleStream) => void) | null = null;
 
   constructor(
     private readonly log: HTMLElement,
@@ -72,13 +74,18 @@ export class ConsolePanel {
     // Sampled before the DOM grows, so a user who scrolled up stays put.
     const stick = this.isAtBottom();
 
-    for (const item of this.pending) {
+    const written = this.pending.splice(0);
+    for (const item of written) {
       this.append(item.stream, item.text);
     }
-    this.pending.length = 0;
 
     this.trim();
     if (stick) this.log.scrollTop = this.log.scrollHeight;
+    for (const item of written) this.onOutput?.(item.stream);
+  }
+
+  scrollToEnd(): void {
+    this.log.scrollTop = this.log.scrollHeight;
   }
 
   private isAtBottom(): boolean {

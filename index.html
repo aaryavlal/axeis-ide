@@ -30,12 +30,35 @@
 
       <main class="panes">
         <section class="pane pane-editor">
-          <div id="editor" class="editor-host"></div>
+          <div class="tabbar">
+            <div class="tabs" role="tablist" aria-label="Editor mode">
+              <button id="tab-blocks" type="button" class="tab" role="tab" aria-selected="true" aria-controls="blocks">
+                Blocks
+              </button>
+              <button id="tab-python" type="button" class="tab" role="tab" aria-selected="false" aria-controls="editor">
+                Python
+              </button>
+            </div>
+            <span class="toolbar-gap"></span>
+            <button id="to-python" type="button" class="tab-action" title="Copy the Python these blocks make into the Python tab">
+              Open as Python
+            </button>
+          </div>
+          <div id="blocks" class="blocks-host" role="tabpanel" aria-labelledby="tab-blocks"></div>
+          <div id="editor" class="editor-host" role="tabpanel" aria-labelledby="tab-python" hidden></div>
         </section>
-        <section class="pane pane-console">
-          <div class="pane-head">Console</div>
-          <div id="console-notice" class="console-notice" role="status" hidden></div>
-          <div id="console" class="console-log" tabindex="0"></div>
+        <section id="console-pane" class="pane pane-console" data-open="false">
+          <button id="console-toggle" type="button" class="console-head" aria-expanded="false" aria-controls="console-body">
+            <span class="console-title">Console</span>
+            <span id="console-unread" class="console-unread" hidden>new output</span>
+            <svg class="console-chevron" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+              <path d="M4 10l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <div id="console-body" class="console-body" hidden>
+            <div id="console-notice" class="console-notice" role="status" hidden></div>
+            <div id="console" class="console-log" tabindex="0"></div>
+          </div>
         </section>
       </main>
 
@@ -49,7 +72,7 @@
       </footer>
     </div>
 
-    <input id="file-input" type="file" accept=".py,text/x-python" hidden />
+    <input id="file-input" type="file" accept=".py,.json,text/x-python,application/json" hidden />
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
