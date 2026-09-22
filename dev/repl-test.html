@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AXEIS IDE — Step 2 repl.ts harness</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <main class="probe">
+      <h1>AXEIS — Step 2 <code>repl.ts</code> harness</h1>
+      <p class="probe-help">
+        Exercises the raw REPL module directly, with no editor and no console panel in the way.
+        Each chunk is logged with the millisecond it arrived, so you can see that output streams
+        rather than landing all at once when the program ends.
+      </p>
+      <div class="probe-bar">
+        <button id="connect" type="button">Connect</button>
+        <button id="disconnect" type="button" disabled>Disconnect</button>
+        <span id="status" class="probe-status">Idle</span>
+      </div>
+      <div class="probe-bar">
+        <button id="run-hello" type="button" disabled>print hello</button>
+        <button id="run-count" type="button" disabled>count to 200 slowly</button>
+        <button id="run-error" type="button" disabled>1/0</button>
+        <button id="run-syntax" type="button" disabled>syntax error</button>
+        <button id="interrupt" type="button" disabled>Ctrl-C</button>
+      </div>
+      <h2>Chunks as they arrive</h2>
+      <pre id="log" class="probe-dump"></pre>
+    </main>
+    <script type="module" src="/dev/repl-test.ts"></script>
+  </body>
+</html>

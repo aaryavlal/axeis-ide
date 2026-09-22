@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AXEIS IDE — Step 1 raw serial probe</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <main class="probe">
+      <h1>AXEIS — Step 1 raw serial probe</h1>
+      <p class="probe-help">
+        Plug in the ESP32, click Connect, pick the serial device. The probe sends
+        <code>0x03 0x03</code>, waits 200&nbsp;ms, sends <code>0x01</code>, then dumps every byte
+        received over the next second.
+      </p>
+      <p class="probe-help">
+        <strong>Expected:</strong> the dump contains <code>raw REPL; CTRL-B to exit</code>.
+      </p>
+      <div class="probe-bar">
+        <button id="connect" type="button">Connect</button>
+        <span id="status" class="probe-status">Idle</span>
+      </div>
+      <h2>Raw bytes (hex + ASCII)</h2>
+      <pre id="dump" class="probe-dump"></pre>
+      <h2>Decoded as UTF-8</h2>
+      <pre id="decoded" class="probe-dump"></pre>
+    </main>
+    <script type="module" src="/dev/probe.ts"></script>
+  </body>
+</html>

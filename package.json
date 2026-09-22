@@ -1,0 +1,22 @@
+{
+  "name": "axeis-ide",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/w3c-web-serial": "^1.0.7",
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0"
+  },
+  "dependencies": {
+    "@codemirror/lang-python": "^6.1.6",
+    "@codemirror/theme-one-dark": "^6.1.2",
+    "codemirror": "^6.0.1"
+  }
+}

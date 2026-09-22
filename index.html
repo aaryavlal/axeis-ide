@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AXEIS IDE</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div id="unsupported" class="unsupported" hidden>
+      <div class="unsupported-card">
+        <h1>AXEIS IDE</h1>
+        <p>This IDE requires Chromium (Chrome or Edge). Firefox and Safari are not supported.</p>
+        <p class="unsupported-why">
+          Talking to the robot over USB uses the Web Serial API, which only Chromium-based
+          browsers implement.
+        </p>
+      </div>
+    </div>
+
+    <div id="app" class="app">
+      <header class="topbar">
+        <span class="brand">AXEIS IDE</span>
+        <span id="status" class="status" data-state="disconnected">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="status-text" class="status-text">Disconnected</span>
+        </span>
+        <button id="connect" type="button" class="btn btn-primary">Connect</button>
+      </header>
+
+      <main class="panes">
+        <section class="pane pane-editor">
+          <div id="editor" class="editor-host"></div>
+        </section>
+        <section class="pane pane-console">
+          <div class="pane-head">Console</div>
+          <div id="console-notice" class="console-notice" role="status" hidden></div>
+          <div id="console" class="console-log" tabindex="0"></div>
+        </section>
+      </main>
+
+      <footer class="toolbar">
+        <button id="run" type="button" class="btn btn-run" disabled>&#9654; Run</button>
+        <button id="stop" type="button" class="btn btn-stop" disabled>&#9632; Stop</button>
+        <button id="download" type="button" class="btn">&#8595; Download</button>
+        <button id="upload" type="button" class="btn">&#8593; Upload</button>
+        <span class="toolbar-gap"></span>
+        <button id="clear" type="button" class="btn">Clear</button>
+      </footer>
+    </div>
+
+    <input id="file-input" type="file" accept=".py,text/x-python" hidden />
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
