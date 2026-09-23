@@ -52,7 +52,7 @@ const theme = Blockly.Theme.defineTheme('axeis-dark', {
     flyoutForegroundColour: '#c9d1d9',
     flyoutOpacity: 1,
     scrollbarColour: '#484f58',
-    scrollbarOpacity: 0.7,
+    scrollbarOpacity: 0.5,
     insertionMarkerColour: '#ffffff',
     insertionMarkerOpacity: 0.3,
     cursorColour: '#2f81f7',
@@ -84,6 +84,8 @@ function writeStored(state: object): void {
 export function createBlockEditor(host: HTMLElement): BlockEditor {
   registerBlocks();
   registerContinuousToolbox();
+  // Default is 15px (25px on touch), which dwarfs the workspace chrome.
+  Blockly.Scrollbar.scrollbarThickness = 10;
 
   // The continuous flyout builds every category during inject, before our
   // Variables / Lists callbacks can be registered on the workspace. Start

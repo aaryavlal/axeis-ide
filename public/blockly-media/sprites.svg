@@ -17,18 +17,23 @@
   font-size: 10pt;
   text-anchor: middle;
 }
-.trash {
-  fill: #888;
-}
-.zoom {
+.trash, .icon {
   fill: none;
-  stroke: #888;
+  stroke: #c9d1d9;
   stroke-width: 2;
   stroke-linecap: round;
+  stroke-linejoin: round;
 }
-.zoom>.center {
-  fill: #888;
-  stroke-width: 0;
+.trash > path:nth-child(2) {
+  stroke-width: 2.5;
+}
+.button {
+  fill: #161b22;
+  stroke: #30363d;
+  stroke-width: 1;
+}
+.dot {
+  fill: #c9d1d9;
 }
   </style>
   <rect id="background" width="96" height="124" x="0" y="0" />
@@ -46,29 +51,23 @@
 
   <text class="checkmark" x="55.5" y="28">&#10003;</text>
 
+  <!-- Trashcan: lid at y 32-48, body at y 48-92, lid hinges at (46, 44). -->
   <g class="trash">
-    <path d="M 2,41 v 6 h 42 v -6 h -10.5 l -3,-3 h -15 l -3,3 z" />
-    <rect width="36" height="20" x="5" y="50" />
-    <rect width="36" height="42" x="5" y="50" rx="4" ry="4" />
+    <path d="M 27,44 v -2.5 a 1.5,1.5 0 0 1 1.5,-1.5 h 5 a 1.5,1.5 0 0 1 1.5,1.5 v 2.5" />
+    <path d="M 16.5,44.5 H 45.5" />
+    <path d="M 19,49 L 20.8,74.2 a 3,3 0 0 0 3,2.8 h 14.4 a 3,3 0 0 0 3,-2.8 L 43,49" />
+    <path d="M 27.5,54 v 17 M 34.5,54 v 17" />
   </g>
 
-  <g class="zoom">
-    <circle r="11.5" cx="16" cy="108" />
-    <circle r="4.3" cx="16" cy="108" class="center" />
-    <path d="m 28,108 h3" />
-    <path d="m 1,108 h3" />
-    <path d="m 16,120 v3" />
-    <path d="m 16,93 v3" />
-  </g>
+  <!-- Zoom controls, 32x32 cells at y 92: reset, zoom in (top of pair), zoom out (bottom). -->
+  <rect class="button" x="0.5" y="92.5" width="31" height="31" rx="6" ry="6" />
+  <path class="button" d="M 32.5,123.5 V 98.5 a 6,6 0 0 1 6,-6 H 57.5 a 6,6 0 0 1 6,6 V 123.5 Z" />
+  <path class="button" d="M 64.5,92.5 H 95.5 V 117.5 a 6,6 0 0 1 -6,6 H 70.5 a 6,6 0 0 1 -6,-6 Z" />
 
-  <g class="zoom">
-    <circle r="15" cx="48" cy="108" />
-    <path d="m 48,101.6 v12.8" />
-    <path d="m 41.6,108 h12.8" />
+  <g class="icon">
+    <path d="M 9,105 V 101 H 13 M 19,101 H 23 V 105 M 23,111 V 115 H 19 M 13,115 H 9 V 111" />
+    <path d="M 48,102 v 12 M 42,108 h 12" />
+    <path d="M 74,108 h 12" />
   </g>
-
-  <g class="zoom">
-    <circle r="15" cx="80" cy="108" />
-    <path d="m 73.6,108 h12.8" />
-  </g>
+  <circle class="dot" cx="16" cy="108" r="2" />
 </svg>

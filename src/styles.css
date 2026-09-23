@@ -252,6 +252,9 @@ body {
   width: 72px;
   border-right: 1px solid var(--border);
   padding-top: 4px;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #484f5880 transparent;
 }
 
 .blocks-host .blocklyToolboxCategory {
@@ -311,6 +314,33 @@ body {
 
 .blocks-host .blocklyMainBackground {
   stroke: none;
+}
+
+/* ---------- Blockly: scrollbars, zoom, trash (art lives in sprites.svg) ---------- */
+
+.blocks-host .blocklyScrollbarHandle {
+  rx: 2.5px;
+  ry: 2.5px;
+  transition: fill-opacity 0.1s ease-out;
+}
+
+.blocks-host .blocklyScrollbarHandle:hover {
+  fill-opacity: 0.9;
+}
+
+.blocks-host .blocklyZoom > image {
+  opacity: 0.85;
+  transition: opacity 0.1s ease-out;
+}
+
+.blocks-host .blocklyZoom > image:hover,
+.blocks-host .blocklyZoom:focus > image {
+  opacity: 1;
+}
+
+.blocks-host .blocklyTrash > image,
+.blocks-host .blocklyTrashLid {
+  opacity: 0.45;
 }
 
 /* ---------- console drawer ---------- */
