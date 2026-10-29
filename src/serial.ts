@@ -55,6 +55,14 @@ export async function openPort(port: SerialPort): Promise<void> {
     parity: 'none',
     flowControl: 'none',
   });
+  // On ESP32 dev boards DTR/RTS drive the auto-reset circuit (EN and GPIO0).
+  // Left asserted, the board can sit in reset or drop into the ROM bootloader.
+  try {
+    await port.setSignals({ dataTerminalReady: false, requestToSend: false });
+  } catch (err) {
+    // Some adapters (e.g. native USB CDC) reject this; the REPL can still work.
+    console.warn('[serial] could not clear DTR/RTS', err);
+  }
 }
 
 /** Short USB id string for the status bar, or '' when the platform hides it. */

@@ -26,8 +26,12 @@ const PROMPT = '>';
 
 /** Bootloader chatter / leftover prompt noise right after the port opens. */
 const DISCARD_WINDOW_MS = 200;
+/** Gap between the two Ctrl-Cs; the first often lands while the board is still booting. */
+const INTERRUPT_GAP_MS = 100;
 /** Spec section 8.4: how long we wait for proof this device speaks MicroPython. */
-const RAW_PROMPT_TIMEOUT_MS = 2000;
+const RAW_PROMPT_TIMEOUT_MS = 2500;
+/** A board reset by port open can still be booting on the first probe. */
+const PROBE_ATTEMPTS = 2;
 /** The device acknowledges a submission immediately or not at all. */
 const ACK_TIMEOUT_MS = 2000;
 /** Trailing '>' after a run has already finished; only lateness is an error. */
@@ -75,6 +79,26 @@ function normalizeNewlines(text: string): string {
 
 function bytes(...values: number[]): Uint8Array {
   return new Uint8Array(values);
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Hex plus escaped text, so a console dump shows exactly what the board sent. */
+function describeBytes(chunks: Uint8Array[]): string {
+  const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const all = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    all.set(chunk, offset);
+    offset += chunk.length;
+  }
+  const hex = Array.from(all, (b) => b.toString(16).padStart(2, '0')).join(' ');
+  const text = Array.from(all, (b) =>
+    b >= 0x20 && b < 0x7f ? String.fromCharCode(b) : `\\x${b.toString(16).padStart(2, '0')}`,
+  ).join('');
+  return `${total} bytes\n  hex:  ${hex}\n  text: ${text}`;
 }
 
 /** Byte queue with the few operations the protocol parser needs. */
@@ -151,6 +175,8 @@ class PortChannel {
   private wake: (() => void) | null = null;
   private failure: Error | null = null;
   private ended = false;
+  /** Copy of every received chunk while non-null; used to log the connect handshake. */
+  private capture: Uint8Array[] | null = null;
 
   constructor(private readonly port: SerialPort) {}
 
@@ -170,6 +196,7 @@ class PortChannel {
         const { value, done } = await reader.read();
         if (done) break;
         if (value && value.length > 0) {
+          this.capture?.push(value.slice());
           this.buffer.append(value);
           this.notify();
         }
@@ -182,6 +209,17 @@ class PortChannel {
       this.ended = true;
       this.notify();
     }
+  }
+
+  startCapture(): void {
+    this.capture = [];
+  }
+
+  /** Stop recording and return everything received since startCapture(). */
+  endCapture(): Uint8Array[] {
+    const captured = this.capture ?? [];
+    this.capture = null;
+    return captured;
   }
 
   private notify(): void {
@@ -339,7 +377,11 @@ export class Repl {
   /**
    * Connection sequence: interrupt whatever is running, let the noise settle,
    * then ask for raw mode and wait for the banner that proves this is
-   * MicroPython.
+   * MicroPython. Retried once, because a board that was reset when the port
+   * opened may swallow the first attempt while it boots.
+   *
+   * Everything received during the handshake is logged to the browser console
+   * so a failed detection shows what the board actually said.
    */
   async connect(port: SerialPort): Promise<void> {
     const channel = new PortChannel(port);
@@ -347,13 +389,21 @@ export class Repl {
     this.channel = channel;
     this.port = port;
 
+    channel.startCapture();
     try {
-      await channel.write(bytes(CTRL_C, CTRL_C));
-      await channel.discardFor(DISCARD_WINDOW_MS);
-      await channel.write(bytes(CTRL_A));
-      await channel.readUntil(encoder.encode(RAW_PROMPT_BANNER), RAW_PROMPT_TIMEOUT_MS);
+      for (let attempt = 1; ; attempt++) {
+        try {
+          await this.probe(channel);
+          break;
+        } catch (err) {
+          if (!(err instanceof ReplTimeoutError) || attempt >= PROBE_ATTEMPTS) throw err;
+          console.warn(`[repl] no raw REPL banner on attempt ${attempt}, retrying`);
+        }
+      }
+      console.info(`[repl] handshake received ${describeBytes(channel.endCapture())}`);
       this.connected = true;
     } catch (err) {
+      console.warn(`[repl] handshake failed; received ${describeBytes(channel.endCapture())}`);
       await channel.stop();
       this.channel = null;
       this.port = null;
@@ -363,6 +413,17 @@ export class Repl {
       }
       throw err;
     }
+  }
+
+  /** One interrupt-then-raw-mode attempt. Times out with ReplTimeoutError. */
+  private async probe(channel: PortChannel): Promise<void> {
+    await channel.write(bytes(CTRL_C));
+    await delay(INTERRUPT_GAP_MS);
+    await channel.write(bytes(CTRL_C));
+    await channel.write(encoder.encode('\r\n'));
+    await channel.discardFor(DISCARD_WINDOW_MS);
+    await channel.write(bytes(CTRL_A));
+    await channel.readUntil(encoder.encode(RAW_PROMPT_BANNER), RAW_PROMPT_TIMEOUT_MS);
   }
 
   /**
