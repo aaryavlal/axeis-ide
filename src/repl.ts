@@ -201,9 +201,14 @@ class PortChannel {
     return attempt;
   }
 
-  /** Resolve once the buffer holds data. `timeoutMs` null waits indefinitely. */
+  /**
+   * Resolve once *new* bytes arrive. `timeoutMs` null waits indefinitely.
+   *
+   * Never returns early just because the buffer is non-empty: callers only get
+   * here when what is buffered is not enough, and returning immediately would
+   * spin them in a microtask loop that starves the read pump and freezes the tab.
+   */
   private async waitForData(timeoutMs: number | null): Promise<void> {
-    if (this.buffer.length > 0) return;
     this.throwIfDead();
     await new Promise<void>((resolve, reject) => {
       let timer: ReturnType<typeof setTimeout> | null = null;
