@@ -122,22 +122,15 @@ Only reachable with `npm run dev`; `npm run build` bundles `index.html` alone.
 
 ## Deploying to GitHub Pages
 
+`.github/workflows/deploy.yml` builds the site and publishes `dist/` to GitHub
+Pages on every push to `main` (or manually from the Actions tab).
+
+One-time setup: in the repo on GitHub, go to **Settings → Pages** and set
+**Source** to **GitHub Actions**. The site is then served at
+`https://<user>.github.io/<repo>/`.
+
 `vite.config.ts` sets `base: './'`, so `dist/` works from any path and needs no
 configuration per repo name.
-
-```bash
-npm run build
-```
-
-Then either point Pages at the `dist/` output via an action, or push the
-contents of `dist/` to a `gh-pages` branch:
-
-```bash
-npm run build
-git worktree add /tmp/pages gh-pages
-cp -r dist/* /tmp/pages/
-cd /tmp/pages && git add -A && git commit -m "Deploy" && git push
-```
 
 Pages serves over HTTPS, which Web Serial requires. (`localhost` is also
 treated as a secure context, which is why `npm run dev` works.)
