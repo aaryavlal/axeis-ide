@@ -360,7 +360,7 @@ function start(): void {
   tabBlocks.addEventListener('click', () => setMode('blocks'));
   tabPython.addEventListener('click', () => setMode('python'));
   toPython.addEventListener('click', handleOpenAsPython);
-  consoleToggle.addEventListener('click', () => setConsoleOpen(consoleBody.hidden));
+  // consoleToggle.addEventListener('click', () => setConsoleOpen(consoleBody.hidden));
 
   // Ctrl-Enter / Cmd-Enter runs in block mode too (the Python editor handles its own).
   document.addEventListener('keydown', (event) => {

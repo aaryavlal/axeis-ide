@@ -65,7 +65,7 @@ time.sleep(${SETTLE_SECONDS})
 _log('program starting')
 try:
     import program
-    _log('program finished')
+    _log('program finished aaryav')
 except Exception as e:
     try:
         with open(_LOG, 'a') as f:
