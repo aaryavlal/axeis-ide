@@ -9,7 +9,9 @@
  *   fast blinking forever     the program crashed (motors are switched off)
  *
  * boot_log.txt records each step, and the traceback if it crashed, so the
- * next USB connection can show what happened on battery.
+ * next USB connection can show what happened on battery. It keeps earlier
+ * boots too: one power-on that logs several boots means the board kept
+ * resetting (typically as the motors start).
  */
 
 import { ROBOT_PINS } from './blocks.ts';
@@ -20,30 +22,39 @@ export const BOOT_LOG_PATH = '/boot_log.txt';
 
 /** Onboard LED on most ESP32 dev boards. */
 const STATUS_LED_PIN = 2;
-const BLINKS = 3;
+const BLINKS = 6;
 const BLINK_MS = 200;
 const SETTLE_SECONDS = 2;
 const CRASH_BLINK_MS = 100;
+/** Start the log afresh past this size so it never fills the flash. */
+const LOG_MAX_BYTES = 4000;
 
 const { L1, L2, R1, R2 } = ROBOT_PINS.motors;
 
 export const MAIN_PY = `# Saved by AXEIS IDE. MicroPython runs this at every power-up.
 # Your program is in program.py; this file starts it and reports problems.
-from machine import Pin
+import machine
+import os
 import sys
 import time
+from machine import Pin
 
 _LOG = '${BOOT_LOG_PATH}'
 _led = Pin(${STATUS_LED_PIN}, Pin.OUT)
 
-def _log(msg, mode='a'):
+def _log(msg):
     try:
-        with open(_LOG, mode) as f:
+        with open(_LOG, 'a') as f:
             f.write('%d ms: %s\\n' % (time.ticks_ms(), msg))
     except OSError:
         pass
 
-_log('booted', 'w')
+try:
+    if os.stat(_LOG)[6] > ${LOG_MAX_BYTES}:
+        os.remove(_LOG)
+except OSError:
+    pass
+_log('--- booted, reset cause %d ---' % machine.reset_cause())
 for _ in range(${BLINKS}):
     _led.on()
     time.sleep_ms(${BLINK_MS})
