@@ -27,7 +27,7 @@ const BLINK_MS = 200;
 const SETTLE_SECONDS = 2;
 const CRASH_BLINK_MS = 100;
 /** Start the log afresh past this size so it never fills the flash. */
-const LOG_MAX_BYTES = 4000;
+cons LOG_MAX_BYTES = 4000;
 
 const { L1, L2, R1, R2 } = ROBOT_PINS.motors;
 
