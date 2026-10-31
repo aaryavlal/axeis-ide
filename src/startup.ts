@@ -25,7 +25,7 @@ const STATUS_LED_PIN = 2;
 const BLINKS = 6;
 const BLINK_MS = 200;
 const SETTLE_SECONDS = 2;
-const CRASH_BLINK_MS = 100;
+const CRASH_BLINK_MS = 500;
 /** Start the log afresh past this size so it never fills the flash. */
 const LOG_MAX_BYTES = 4000;
 
