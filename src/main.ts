@@ -18,6 +18,7 @@ import {
   PortPickerCancelled,
   requestPort,
 } from './serial.ts';
+import { withStartupSignal } from './startup.ts';
 import { Ui } from './ui.ts';
 
 function byId<T extends HTMLElement>(id: string): T {
@@ -55,6 +56,7 @@ function start(): void {
     connect: byId<HTMLButtonElement>('connect'),
     run: byId<HTMLButtonElement>('run'),
     stop: byId<HTMLButtonElement>('stop'),
+    save: byId<HTMLButtonElement>('save'),
     download: byId<HTMLButtonElement>('download'),
     upload: byId<HTMLButtonElement>('upload'),
     clear: byId<HTMLButtonElement>('clear'),
@@ -65,7 +67,7 @@ function start(): void {
   /** Hash of the contents as last saved or loaded; drives the unsaved check. */
   let savedHash = hashContents(DEFAULT_PROGRAM);
   let savedBlocksHash = hashContents(JSON.stringify(blocks.save()));
-  /** Block mode is the default; Run, Download and Upload follow the open tab. */
+  /** Block mode is the default; Run, Save, Download and Upload follow the open tab. */
   let mode: 'blocks' | 'python' = 'blocks';
   let activePort: SerialPort | null = null;
   /** Suppresses "connection lost" noise when the user asked to disconnect. */
@@ -192,25 +194,27 @@ function start(): void {
     ui.set('disconnected');
   }
 
+  /** The open tab's program, or null (with a console hint) if blocks have no start. */
+  function currentProgram(): string | null {
+    if (mode === 'python') return editor.getValue();
+    const program = blocks.getProgram();
+    if (!program.hasStart) {
+      setConsoleOpen(true);
+      consolePanel.writeLine(
+        'system',
+        'Nothing to run: drag "when Run clicked" from Events and snap blocks under it.',
+      );
+      return null;
+    }
+    return program.code;
+  }
+
   async function handleRun(): Promise<void> {
     // Spec 8.8: the button state makes this unreachable, but never trust it.
     if (!repl.isConnected() || repl.isBusy()) return;
 
-    let code: string;
-    if (mode === 'blocks') {
-      const program = blocks.getProgram();
-      if (!program.hasStart) {
-        setConsoleOpen(true);
-        consolePanel.writeLine(
-          'system',
-          'Nothing to run: drag "when Run clicked" from Events and snap blocks under it.',
-        );
-        return;
-      }
-      code = program.code;
-    } else {
-      code = editor.getValue();
-    }
+    const code = currentProgram();
+    if (code === null) return;
     setConsoleOpen(true);
     ui.set('executing');
     consolePanel.writeLine('action', '▶ Running...');
@@ -235,6 +239,38 @@ function start(): void {
       ui.set(repl.isConnected() ? 'connected' : 'disconnected');
     } finally {
       running = false;
+    }
+  }
+
+  /**
+   * Write the open tab to /main.py so it runs at power-up without the IDE.
+   * Run only puts code in RAM; this is the one thing that survives a power cycle.
+   */
+  async function handleSave(): Promise<void> {
+    if (!repl.isConnected() || repl.isBusy()) return;
+
+    const code = currentProgram();
+    if (code === null) return;
+    setConsoleOpen(true);
+    ui.set('saving');
+    consolePanel.writeLine('action', 'Saving to robot as main.py...');
+
+    try {
+      await repl.writeFile('/main.py', withStartupSignal(code));
+      consolePanel.writeLine(
+        'system',
+        'Saved main.py. Unplug USB and power on from the battery: the LED on GPIO2 blinks 3 times, then the program starts 2 seconds later.',
+      );
+      ui.set('connected');
+    } catch (err) {
+      if (closingOnPurpose) return;
+      if (err instanceof ReplConnectionLostError) {
+        handleConnectionLost('Connection lost while saving; main.py was not changed');
+        return;
+      }
+      consolePanel.writeLine('system', `Save failed: ${message(err)}`);
+      await repl.interrupt().catch(() => undefined);
+      ui.set(repl.isConnected() ? 'connected' : 'disconnected');
     }
   }
 
@@ -315,6 +351,7 @@ function start(): void {
   byId<HTMLButtonElement>('connect').addEventListener('click', () => void handleConnect());
   byId<HTMLButtonElement>('run').addEventListener('click', () => void handleRun());
   byId<HTMLButtonElement>('stop').addEventListener('click', () => void handleStop());
+  byId<HTMLButtonElement>('save').addEventListener('click', () => void handleSave());
   byId<HTMLButtonElement>('download').addEventListener('click', handleDownload);
   byId<HTMLButtonElement>('upload').addEventListener('click', () => void handleUpload());
   byId<HTMLButtonElement>('clear').addEventListener('click', () => consolePanel.clear());

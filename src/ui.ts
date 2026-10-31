@@ -11,12 +11,14 @@ export type AppState =
   | 'connecting'
   | 'connected'
   | 'executing'
+  | 'saving'
   | 'error';
 
 export interface Controls {
   connect: HTMLButtonElement;
   run: HTMLButtonElement;
   stop: HTMLButtonElement;
+  save: HTMLButtonElement;
   download: HTMLButtonElement;
   upload: HTMLButtonElement;
   clear: HTMLButtonElement;
@@ -53,13 +55,14 @@ export class Ui {
     const c = this.controls;
     const state = this.state;
 
-    const connectedish = state === 'connected' || state === 'executing';
+    const connectedish = state === 'connected' || state === 'executing' || state === 'saving';
     const localFileOpsAvailable = state !== 'unsupported';
 
     c.connect.disabled = state === 'unsupported' || state === 'connecting';
     c.connect.textContent = connectedish ? 'Disconnect' : 'Connect';
     c.run.disabled = state !== 'connected';
     c.stop.disabled = state !== 'executing';
+    c.save.disabled = state !== 'connected';
     // Saving and loading .py files is local work; it never needs a robot.
     c.download.disabled = !localFileOpsAvailable;
     c.upload.disabled = !localFileOpsAvailable;
@@ -80,6 +83,8 @@ export class Ui {
         return this.deviceInfo ? `Connected · ${this.deviceInfo}` : 'Connected';
       case 'executing':
         return 'Running...';
+      case 'saving':
+        return 'Saving to robot...';
       case 'error':
         return `Error: ${this.errorMessage}`;
       case 'disconnected':

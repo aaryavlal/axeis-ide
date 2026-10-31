@@ -36,6 +36,8 @@ const PROBE_ATTEMPTS = 2;
 const ACK_TIMEOUT_MS = 2000;
 /** Trailing '>' after a run has already finished; only lateness is an error. */
 const PROMPT_TIMEOUT_MS = 2000;
+/** Raw bytes per file-write submission; keeps each one well inside the REPL's buffer. */
+const WRITE_CHUNK_BYTES = 512;
 
 const encoder = new TextEncoder();
 
@@ -79,6 +81,17 @@ function normalizeNewlines(text: string): string {
 
 function bytes(...values: number[]): Uint8Array {
   return new Uint8Array(values);
+}
+
+function toBase64(data: Uint8Array): string {
+  let binary = '';
+  for (const b of data) binary += String.fromCharCode(b);
+  return btoa(binary);
+}
+
+/** JSON string syntax is valid Python for the plain paths we write. */
+function pyString(text: string): string {
+  return JSON.stringify(text);
 }
 
 function delay(ms: number): Promise<void> {
@@ -485,6 +498,64 @@ export class Repl {
     } finally {
       this.busy = false;
     }
+  }
+
+  /**
+   * Write `contents` to `path` on the device's filesystem, then read it back
+   * and check it byte for byte. It goes to a temporary name first and is only
+   * renamed into place once verified, so an unplug mid-write never leaves a
+   * truncated file at `path`.
+   */
+  async writeFile(path: string, contents: string): Promise<void> {
+    const data = encoder.encode(contents);
+    const tmp = `${path}.tmp`;
+
+    await this.exec(`import ubinascii as _b\n_f = open(${pyString(tmp)}, 'wb')`);
+    try {
+      for (let at = 0; at < data.length; at += WRITE_CHUNK_BYTES) {
+        const chunk = toBase64(data.subarray(at, at + WRITE_CHUNK_BYTES));
+        await this.exec(`_f.write(_b.a2b_base64('${chunk}'))`);
+      }
+      await this.exec('_f.close()');
+    } catch (err) {
+      await this.exec('_f.close()').catch(() => undefined);
+      throw err;
+    }
+
+    const readBack = await this.exec(
+      `with open(${pyString(tmp)}, 'rb') as _f:\n    print(_b.b2a_base64(_f.read()).decode().strip())`,
+    );
+    if (readBack.trim() !== toBase64(data)) {
+      throw new ReplError(`${path} did not read back the same as what was sent`);
+    }
+
+    await this.exec(
+      [
+        'import os',
+        'try:',
+        `    os.remove(${pyString(path)})`,
+        'except OSError:',
+        '    pass',
+        `os.rename(${pyString(tmp)}, ${pyString(path)})`,
+        'del _f, _b',
+      ].join('\n'),
+    );
+  }
+
+  /** Run a short snippet to completion; anything on stderr becomes a ReplError. */
+  private async exec(code: string): Promise<string> {
+    let stdout = '';
+    let stderr = '';
+    for await (const chunk of this.execute(code)) {
+      if (chunk.stream === 'stdout') stdout += chunk.data;
+      else stderr += chunk.data;
+    }
+    const error = stderr.trim();
+    if (error.length > 0) {
+      // The last traceback line is the useful part, e.g. "OSError: 28".
+      throw new ReplError(error.split('\n').pop() ?? error);
+    }
+    return stdout;
   }
 
   /**

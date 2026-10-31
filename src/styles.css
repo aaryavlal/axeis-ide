@@ -122,7 +122,8 @@ body {
 }
 
 .status[data-state="connected"] .status-dot,
-.status[data-state="executing"] .status-dot {
+.status[data-state="executing"] .status-dot,
+.status[data-state="saving"] .status-dot {
   background: var(--green);
 }
 
@@ -131,7 +132,8 @@ body {
 }
 
 .status[data-state="connected"],
-.status[data-state="executing"] {
+.status[data-state="executing"],
+.status[data-state="saving"] {
   color: var(--text);
 }
 
@@ -139,7 +141,8 @@ body {
   color: var(--red);
 }
 
-.status[data-state="executing"] .status-dot {
+.status[data-state="executing"] .status-dot,
+.status[data-state="saving"] .status-dot {
   animation: pulse 1.1s ease-in-out infinite;
 }
 
@@ -150,7 +153,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .status[data-state="executing"] .status-dot {
+  .status[data-state="executing"] .status-dot,
+  .status[data-state="saving"] .status-dot {
     animation: none;
   }
 }
