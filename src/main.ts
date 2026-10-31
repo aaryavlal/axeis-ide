@@ -18,7 +18,7 @@ import {
   PortPickerCancelled,
   requestPort,
 } from './serial.ts';
-import { withStartupSignal } from './startup.ts';
+import { MAIN_PATH, MAIN_PY, PROGRAM_PATH } from './startup.ts';
 import { Ui } from './ui.ts';
 
 function byId<T extends HTMLElement>(id: string): T {
@@ -243,8 +243,9 @@ function start(): void {
   }
 
   /**
-   * Write the open tab to /main.py so it runs at power-up without the IDE.
+   * Write the open tab to the board so it runs at power-up without the IDE.
    * Run only puts code in RAM; this is the one thing that survives a power cycle.
+   * The program goes in program.py and main.py is the launcher that starts it.
    */
   async function handleSave(): Promise<void> {
     if (!repl.isConnected() || repl.isBusy()) return;
@@ -253,19 +254,20 @@ function start(): void {
     if (code === null) return;
     setConsoleOpen(true);
     ui.set('saving');
-    consolePanel.writeLine('action', 'Saving to robot as main.py...');
+    consolePanel.writeLine('action', 'Saving to robot...');
 
     try {
-      await repl.writeFile('/main.py', withStartupSignal(code));
+      await repl.writeFile(PROGRAM_PATH, code);
+      await repl.writeFile(MAIN_PATH, MAIN_PY);
       consolePanel.writeLine(
         'system',
-        'Saved main.py. Unplug USB and power on from the battery: the LED on GPIO2 blinks 3 times, then the program starts 2 seconds later.',
+        'Saved. Unplug USB and power on from the battery: the LED on GPIO2 blinks 3 times, then the program starts 2 seconds later. Fast blinking means the program crashed; reconnect and read boot_log.txt.',
       );
       ui.set('connected');
     } catch (err) {
       if (closingOnPurpose) return;
       if (err instanceof ReplConnectionLostError) {
-        handleConnectionLost('Connection lost while saving; main.py was not changed');
+        handleConnectionLost('Connection lost while saving; save again before unplugging');
         return;
       }
       consolePanel.writeLine('system', `Save failed: ${message(err)}`);

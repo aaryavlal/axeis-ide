@@ -41,12 +41,15 @@ npm run preview  # serve dist/ locally
    console drawer at the bottom opens itself; click its bar (arrow on the right)
    to open or close it at any time.
 4. **Stop** sends Ctrl-C and interrupts the running program.
-5. **Save to robot** writes the open tab to `/main.py` on the board, so it runs
-   by itself at power-up with no laptop attached. The saved file starts by
-   blinking the onboard LED (GPIO2) three times and then waiting 2 seconds:
-   on battery there is no console, so the blink is the sign the code started,
-   and the pause gives time to set the robot down. The file is read back and
-   checked before it replaces the old `main.py`.
+5. **Save to robot** writes the open tab to the board so it runs by itself at
+   power-up with no laptop attached. Your program goes in `/program.py`;
+   `/main.py` (which MicroPython runs at boot) is a launcher that blinks the
+   onboard LED (GPIO2) three times, waits 2 seconds, then imports it. On
+   battery there is no console, so the LED is the signal: 3 blinks means it
+   booted, fast blinking forever means the program crashed (motors are
+   switched off). `/boot_log.txt` records each boot and any traceback, so
+   reconnecting shows what happened. Every file is read back and checked
+   before it replaces the old one.
 6. **Download** saves the open tab: blocks as `.json`, Python as `.py`.
    **Upload** takes either and opens the matching tab — it never runs it for you.
 7. **Open as Python** (Blocks tab) copies the Python your blocks make into the
@@ -82,7 +85,8 @@ into MicroPython (stock ESP32 firmware, `machine` and `neopixel` only).
 ### What v1 does not do
 
 Run executes code **in RAM**, so it does not survive a power cycle; only
-**Save to robot** writes to flash, and it only ever writes `main.py`. There is
+**Save to robot** writes to flash, and it only ever writes `main.py` and
+`program.py`. There is
 no other file management on the robot, no multi-file projects, and no
 autosave. This is deliberate for v1.
 
@@ -116,7 +120,7 @@ src/blocks.ts       block definitions, colours and toolbox
 src/blockgen.ts     blocks -> MicroPython
 src/console.ts      output panel rendering
 src/files.ts        download / upload .py and .json
-src/startup.ts      LED-blink preamble added to main.py by Save to robot
+src/startup.ts      the main.py launcher written by Save to robot
 src/ui.ts           button state machine and status indicator
 src/styles.css      all styling
 public/blockly-media  Blockly's icons and sounds, served locally
