@@ -18,7 +18,9 @@ import 'blockly/blocks'; // math_number, text, variables_*, procedures_*
  * "drive forward" and go. The toolbox's setup blocks show the same numbers.
  */
 export const ROBOT_PINS = {
-  motors: { L1: 25, L2: 26, R1: 27, R2: 14 },
+  // DRV8833: IN1/IN2 -> motor A (left), IN3/IN4 -> motor B (right). SLEEP is tied
+  // to 3V3, so the driver is always awake and needs no enable pin.
+  motors: { L1: 25, L2: 26, R1: 32, R2: 33 },
   strip: { pin: 5, count: 8 },
   buzzer: 4,
 } as const;
