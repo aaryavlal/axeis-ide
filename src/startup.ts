@@ -27,7 +27,7 @@ const BLINK_MS = 200;
 const SETTLE_SECONDS = 2;
 const CRASH_BLINK_MS = 100;
 /** Start the log afresh past this size so it never fills the flash. */
-cons LOG_MAX_BYTES = 4000;
+const LOG_MAX_BYTES = 4000;
 
 const { L1, L2, R1, R2 } = ROBOT_PINS.motors;
 
@@ -58,7 +58,7 @@ _log('--- booted, aaryav reset cause %d ---' % machine.reset_cause())
 for _ in range(${BLINKS}):
     _led.on()
     time.sleep_ms(${BLINK_MS})
-    _led.off()
+    _led.off() 
     time.sleep_ms(${BLINK_MS})
 time.sleep(${SETTLE_SECONDS})
 
@@ -75,7 +75,7 @@ except Exception as e:
         pass
     for _p in (${L1}, ${L2}, ${R1}, ${R2}):
         Pin(_p, Pin.OUT, value=0)
-    while True:
+    for i in range(20):
         _led.value(not _led.value())
         time.sleep_ms(${CRASH_BLINK_MS})
 `;
