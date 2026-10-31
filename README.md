@@ -55,11 +55,16 @@ Sound, Pins, Sensing, Operators, Variables, Lists and My Blocks. Only scripts
 under **when Run clicked** (plus My Blocks definitions) run; loose blocks turn
 grey and are skipped. The workspace autosaves in the browser.
 
-Hardware blocks take pin numbers, so they fit any wiring:
+Motor, buzzer and LED strip blocks work straight away using the AXEIS robot's
+wiring (`ROBOT_PINS` in `src/blocks.ts`); no setup block is needed. The
+**set up …** blocks at the bottom of those categories are only for robots wired
+differently. Other hardware blocks take pin numbers, so they fit any wiring:
 
 - **Motors**: two pins per motor (DRV8833 / L9110S / L298N-style IN1 IN2). Swap
-  a pair if that wheel runs backwards. Motors and the buzzer are always switched
-  off when a program ends or is stopped.
+  a pair if that wheel runs backwards. If the wheels are still turning when the
+  script reaches its end, the program keeps running (so "when Run clicked ->
+  drive forward" just drives) until **Stop** is pressed. Motors and the buzzer
+  are always switched off when a program is stopped or hits an error.
 - **Lights**: a plain LED on a pin, or a NeoPixel / WS2812 strip.
 - **Sound**: a passive buzzer on a PWM pin.
 - **Sensing**: buttons (pin to GND), digital and analog pins, HC-SR04 distance,

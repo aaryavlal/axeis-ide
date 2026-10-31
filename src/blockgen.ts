@@ -12,7 +12,7 @@
 
 import * as Blockly from 'blockly';
 import { Order, pythonGenerator as py } from 'blockly/python';
-import { isInsideLoop, NOTES } from './blocks.ts';
+import { isInsideLoop, NOTES, ROBOT_PINS } from './blocks.ts';
 
 py.INDENT = '    ';
 
@@ -79,8 +79,9 @@ def _pin_toggle(pin):
     _pin_out(pin, 1 - _pin_state.get(pin, 0))`,
   },
   motors: {
-    deps: ['pwm', 'duty'],
-    code: `_motor_pins = {}
+    deps: ['time', 'pwm', 'duty'],
+    code: `_motor_pins = {'L': (${ROBOT_PINS.motors.L1}, ${ROBOT_PINS.motors.L2}), 'R': (${ROBOT_PINS.motors.R1}, ${ROBOT_PINS.motors.R2})}
+_speeds = {'L': 0, 'R': 0}
 
 def _motors_setup(left1, left2, right1, right2):
     _motor_pins['L'] = (left1, left2)
@@ -88,9 +89,8 @@ def _motors_setup(left1, left2, right1, right2):
     _drive(0, 0)
 
 def _motor(side, speed):
-    pins = _motor_pins.get(side)
-    if pins is None:
-        raise RuntimeError('Add a "set up motors" block before using the motors')
+    pins = _motor_pins[side]
+    _speeds[side] = speed
     duty = _duty(abs(speed))
     if speed >= 0:
         _pwm_set(pins[0], 1000, duty)
@@ -107,7 +107,13 @@ def _straight(speed):
     _drive(speed, speed)
 
 def _spin(speed):
-    _drive(-speed, speed)`,
+    _drive(-speed, speed)
+
+def _keep_driving():
+    if _speeds['L'] or _speeds['R']:
+        print('Still driving. Press Stop to stop the robot.')
+        while True:
+            time.sleep_ms(100)`,
   },
   servo: {
     deps: ['pwm'],
@@ -117,12 +123,10 @@ def _spin(speed):
   },
   buzzer: {
     deps: ['time', 'pwm'],
-    code: `_buzzer = [None]
+    code: `_buzzer = [${ROBOT_PINS.buzzer}]
 
 def _tone(freq, seconds):
     pin = _buzzer[0]
-    if pin is None:
-        raise RuntimeError('Add a "set up buzzer" block before playing sounds')
     if freq > 0:
         _pwm_set(pin, max(1, min(20000, int(freq))), 32768)
     time.sleep(seconds)
@@ -139,7 +143,7 @@ def _sound_off():
 
 def _strip_get():
     if _strip[0] is None:
-        raise RuntimeError('Add a "set up LED strip" block before using the LEDs')
+        _strip[0] = NeoPixel(Pin(${ROBOT_PINS.strip.pin}, Pin.OUT), ${ROBOT_PINS.strip.count})
     return _strip[0]
 
 def _led_set(number, color):
@@ -224,7 +228,7 @@ function need(gen: Gen, key: string): void {
 py.addReservedWords(
   [
     '_duty', '_pwms', '_pwm_set', '_pwm_release', '_pin_state', '_pin_out', '_pin_toggle',
-    '_motor_pins', '_motors_setup', '_motor', '_drive', '_straight', '_spin', '_servo',
+    '_motor_pins', '_speeds', '_keep_driving', '_motors_setup', '_motor', '_drive', '_straight', '_spin', '_servo',
     '_buzzer', '_tone', '_sound_off', '_strip', '_strip_get', '_led_set', '_led_fill', '_rgb',
     '_adcs', '_analog', '_distance', '_timer', '_timer_seconds', '_random', '_map',
     '_index_of', '_cleanup', 'time', 'random', 'math', 'Pin', 'PWM', 'ADC', 'TouchPad',
@@ -603,10 +607,16 @@ export function generateProgram(workspace: Blockly.Workspace): Program {
   let main = start ? (py.blockToCode(start) as string) : '';
   if (!main.trim()) main = 'pass\n';
 
-  // Whatever way the program ends (finished, Stop, error), leave nothing moving
-  // or beeping. Lights and servos keep their last state on purpose.
+  // "when Run clicked, drive forward" should keep driving, not stop the
+  // instant the script ends. So if the wheels are still turning at the end,
+  // stay running until Stop is pressed (the Stop button only works while a
+  // program is running).
+  if ('motors' in d) main += '_keep_driving()\n';
+
+  // Whatever way the program ends (Stop, error, "stop program"), leave nothing
+  // moving or beeping. Lights and servos keep their last state on purpose.
   const cleanup: string[] = [];
-  if ('motors' in d) cleanup.push("if _motor_pins:\n    _drive(0, 0)");
+  if ('motors' in d) cleanup.push('_drive(0, 0)');
   if ('buzzer' in d) cleanup.push('_sound_off()');
   if (cleanup.length > 0) {
     main = `try:\n${py.prefixLines(main, py.INDENT)}finally:\n${py.prefixLines(cleanup.join('\n'), py.INDENT)}\n`;

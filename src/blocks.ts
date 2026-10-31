@@ -12,6 +12,17 @@
 import * as Blockly from 'blockly';
 import 'blockly/blocks'; // math_number, text, variables_*, procedures_*
 
+/**
+ * How the AXEIS robot is wired. Motors, buzzer and LED strip blocks use these
+ * pins unless the program has a "set up" block, so kids can just drag
+ * "drive forward" and go. The toolbox's setup blocks show the same numbers.
+ */
+export const ROBOT_PINS = {
+  motors: { L1: 25, L2: 26, R1: 27, R2: 14 },
+  strip: { pin: 5, count: 8 },
+  buzzer: 4,
+} as const;
+
 /** [primary, secondary, tertiary] — Scratch 3 category colours. */
 const PALETTE = {
   events: ['#FFBF00', '#E6AC00', '#CC9900'],
@@ -251,7 +262,7 @@ const DEFINITIONS: Json[] = [
     'motion',
     'set up motors left pins %1 %2 right pins %3 %4',
     [value('L1'), value('L2'), value('R1'), value('R2')],
-    'Tell the robot which pins drive each motor (two pins per motor, e.g. DRV8833 / L298N IN1 IN2). Swap a pair if that wheel spins backwards.',
+    'Only needed if your robot is wired differently. Tells the robot which pins drive each motor (two pins per motor). Swap a pair if that wheel spins backwards.',
   ),
   command(
     'ax_drive',
@@ -327,7 +338,7 @@ const DEFINITIONS: Json[] = [
     'lights',
     'set up LED strip on pin %1 with %2 LEDs',
     [value('PIN'), value('COUNT')],
-    'Use a NeoPixel / WS2812 colour LED strip.',
+    'Only needed if your LED strip is on a different pin or has a different number of LEDs.',
   ),
   command('ax_strip_set', 'lights', 'set LED %1 to %2', [value('INDEX'), value('COLOR', 'Colour')], 'Colour one LED. The first LED is number 1.'),
   command('ax_strip_fill', 'lights', 'set all LEDs to %1', [value('COLOR', 'Colour')], 'Colour every LED on the strip.'),
@@ -343,7 +354,7 @@ const DEFINITIONS: Json[] = [
   ),
 
   // Sound
-  command('ax_buzzer_setup', 'sound', 'set up buzzer on pin %1', [value('PIN')], 'Tell the robot which pin the buzzer is on.'),
+  command('ax_buzzer_setup', 'sound', 'set up buzzer on pin %1', [value('PIN')], 'Only needed if your buzzer is on a different pin.'),
   command(
     'ax_note',
     'sound',
@@ -554,8 +565,6 @@ export const TOOLBOX = {
       block('ax_stop'),
     ]),
     category('Motors', 'motion', [
-      block('ax_motors_setup', { L1: num(25), L2: num(26), R1: num(27), R2: num(14) }),
-      gap(24),
       block('ax_drive', { SPEED: num(50) }),
       block('ax_drive_for', { SPEED: num(50), SECS: num(1) }),
       block('ax_turn', { SPEED: num(50) }),
@@ -566,6 +575,13 @@ export const TOOLBOX = {
       block('ax_tank', { LEFT: num(50), RIGHT: num(50) }),
       gap(24),
       block('ax_servo', { PIN: num(13), ANGLE: num(90) }),
+      gap(24),
+      block('ax_motors_setup', {
+        L1: num(ROBOT_PINS.motors.L1),
+        L2: num(ROBOT_PINS.motors.L2),
+        R1: num(ROBOT_PINS.motors.R1),
+        R2: num(ROBOT_PINS.motors.R2),
+      }),
     ]),
     category('Console', 'looks', [
       block('ax_print', { TEXT: txt('Hello!') }),
@@ -574,21 +590,22 @@ export const TOOLBOX = {
     category('Lights', 'lights', [
       block('ax_led', { PIN: num(2) }),
       gap(24),
-      block('ax_strip_setup', { PIN: num(5), COUNT: num(8) }),
       block('ax_strip_set', { INDEX: num(1), COLOR: colour('red') }),
       block('ax_strip_fill', { COLOR: colour('blue') }),
       block('ax_strip_clear'),
       gap(24),
       block('ax_color', undefined, { COLOR: 'green' }),
       block('ax_color_rgb', { R: num(255), G: num(0), B: num(128) }),
+      gap(24),
+      block('ax_strip_setup', { PIN: num(ROBOT_PINS.strip.pin), COUNT: num(ROBOT_PINS.strip.count) }),
     ]),
     category('Sound', 'sound', [
-      block('ax_buzzer_setup', { PIN: num(4) }),
-      gap(24),
       block('ax_note', { SECS: num(0.5) }),
       block('ax_tone', { FREQ: num(440), SECS: num(0.5) }),
       block('ax_beep'),
       block('ax_sound_off'),
+      gap(24),
+      block('ax_buzzer_setup', { PIN: num(ROBOT_PINS.buzzer) }),
     ]),
     category('Pins', 'pins', [
       block('ax_pin_write', { PIN: num(2) }),
