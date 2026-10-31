@@ -54,7 +54,7 @@ try:
         os.remove(_LOG)
 except OSError:
     pass
-_log('--- booted, reset cause %d ---' % machine.reset_cause())
+_log('--- booted, aaryav reset cause %d ---' % machine.reset_cause())
 for _ in range(${BLINKS}):
     _led.on()
     time.sleep_ms(${BLINK_MS})
