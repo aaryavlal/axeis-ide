@@ -5,8 +5,9 @@
  * boot) is a fixed launcher around it. A robot on battery has no serial
  * console, so the launcher reports through the onboard LED and a log file:
  *
- *   3 slow blinks, 2 s pause  the board booted and is about to start the program
- *   fast blinking forever     the program crashed (motors are switched off)
+ *   3 blinks, 2 s pause       the board booted and is about to start the program
+ *   steady slow blinking      the program is running
+ *   fast blinking             the program crashed (motors are switched off)
  *
  * boot_log.txt records each step, and the traceback if it crashed, so the
  * next USB connection can show what happened on battery. It keeps earlier
@@ -22,9 +23,12 @@ export const BOOT_LOG_PATH = '/boot_log.txt';
 
 /** Onboard LED on most ESP32 dev boards. */
 const STATUS_LED_PIN = 2;
-const BLINKS = 6;
+const BLINKS = 3;
 const BLINK_MS = 200;
 const SETTLE_SECONDS = 2;
+/** LED toggle period while program.py runs; a hardware timer drives it. */
+const RUN_BLINK_MS = 1000;
+const RUN_BLINK_TIMER = 3;
 const CRASH_BLINK_MS = 500;
 /** Start the log afresh past this size so it never fills the flash. */
 const LOG_MAX_BYTES = 4000;
@@ -37,7 +41,7 @@ import machine
 import os
 import sys
 import time
-from machine import Pin
+from machine import Pin, Timer
 
 _LOG = '${BOOT_LOG_PATH}'
 _led = Pin(${STATUS_LED_PIN}, Pin.OUT)
@@ -58,13 +62,20 @@ _log('--- booted, aaryav reset cause %d ---' % machine.reset_cause())
 for _ in range(${BLINKS}):
     _led.on()
     time.sleep_ms(${BLINK_MS})
-    _led.off() 
+    _led.off()
     time.sleep_ms(${BLINK_MS})
 time.sleep(${SETTLE_SECONDS})
 
 _log('program starting')
+_blink = Timer(${RUN_BLINK_TIMER})
+_blink.init(period=${RUN_BLINK_MS}, mode=Timer.PERIODIC,
+            callback=lambda t: _led.value(not _led.value()))
 try:
-    import program
+    try:
+        import program
+    finally:
+        _blink.deinit()
+        _led.off()
     _log('program finished aaryav')
 except Exception as e:
     try:
