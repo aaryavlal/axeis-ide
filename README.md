@@ -46,7 +46,7 @@ npm run preview  # serve dist/ locally
    `/main.py` (which MicroPython runs at boot) is a launcher that blinks the
    onboard LED (GPIO2) three times, waits 2 seconds, then imports it. On
    battery there is no console, so the LED is the signal: 3 blinks means it
-   booted, a slow steady blink (1 s on, 1 s off) means the program is running,
+   booted, the LED staying on means the program is running,
    fast blinking means the program crashed (motors are
    switched off). `/boot_log.txt` records each boot and any traceback, so
    reconnecting shows what happened. Every file is read back and checked

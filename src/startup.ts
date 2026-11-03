@@ -6,7 +6,7 @@
  * console, so the launcher reports through the onboard LED and a log file:
  *
  *   3 blinks, 2 s pause       the board booted and is about to start the program
- *   steady slow blinking      the program is running
+ *   LED on solid              the program is running
  *   fast blinking             the program crashed (motors are switched off)
  *
  * boot_log.txt records each step, and the traceback if it crashed, so the
@@ -26,9 +26,6 @@ const STATUS_LED_PIN = 2;
 const BLINKS = 3;
 const BLINK_MS = 200;
 const SETTLE_SECONDS = 2;
-/** LED toggle period while program.py runs; a hardware timer drives it. */
-const RUN_BLINK_MS = 1000;
-const RUN_BLINK_TIMER = 3;
 const CRASH_BLINK_MS = 500;
 /** Start the log afresh past this size so it never fills the flash. */
 const LOG_MAX_BYTES = 4000;
@@ -41,7 +38,7 @@ import machine
 import os
 import sys
 import time
-from machine import Pin, Timer
+from machine import Pin
 
 _LOG = '${BOOT_LOG_PATH}'
 _led = Pin(${STATUS_LED_PIN}, Pin.OUT)
@@ -67,14 +64,11 @@ for _ in range(${BLINKS}):
 time.sleep(${SETTLE_SECONDS})
 
 _log('program starting')
-_blink = Timer(${RUN_BLINK_TIMER})
-_blink.init(period=${RUN_BLINK_MS}, mode=Timer.PERIODIC,
-            callback=lambda t: _led.value(not _led.value()))
+_led.on()
 try:
     try:
         import program
     finally:
-        _blink.deinit()
         _led.off()
     _log('program finished aaryav')
 except Exception as e:
