@@ -70,8 +70,9 @@ wiring (`ROBOT_PINS` in `src/blocks.ts`); no setup block is needed. The
 **set up …** blocks at the bottom of those categories are only for robots wired
 differently. Other hardware blocks take pin numbers, so they fit any wiring:
 
-- **Motors**: two pins per motor (DRV8833 / L9110S / L298N-style IN1 IN2). Swap
-  a pair if that wheel runs backwards. If the wheels are still turning when the
+- **Motors**: two direction pins and a speed (enable) pin per motor, as on the
+  L298N (IN1 IN2 ENA). Leave the speed pin empty for drivers without one
+  (DRV8833 / L9110S). Swap the direction pins if that wheel runs backwards. If the wheels are still turning when the
   script reaches its end, the program keeps running (so "when Run clicked ->
   drive forward" just drives) until **Stop** is pressed. Motors and the buzzer
   are always switched off when a program is stopped or hits an error.

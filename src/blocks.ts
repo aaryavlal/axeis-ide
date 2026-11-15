@@ -18,9 +18,9 @@ import 'blockly/blocks'; // math_number, text, variables_*, procedures_*
  * "drive forward" and go. The toolbox's setup blocks show the same numbers.
  */
 export const ROBOT_PINS = {
-  // DRV8833: IN1/IN2 -> motor A (left), IN3/IN4 -> motor B (right). SLEEP is tied
-  // to 3V3, so the driver is always awake and needs no enable pin.
-  motors: { L1: 25, L2: 26, R1: 32, R2: 33 },
+  // L298N: IN1/IN2 set the left motor's direction and ENA its speed (PWM);
+  // IN3/IN4 and ENB do the same for the right motor.
+  motors: { L1: 4, L2: 5, LEN: 6, R1: 7, R2: 15, REN: 16 },
   strip: { pin: 5, count: 8 },
   buzzer: 4,
 } as const;
@@ -262,9 +262,9 @@ const DEFINITIONS: Json[] = [
   command(
     'ax_motors_setup',
     'motion',
-    'set up motors left pins %1 %2 right pins %3 %4',
-    [value('L1'), value('L2'), value('R1'), value('R2')],
-    'Only needed if your robot is wired differently. Tells the robot which pins drive each motor (two pins per motor). Swap a pair if that wheel spins backwards.',
+    'set up motors left pins %1 %2 speed %3 right pins %4 %5 speed %6',
+    [value('L1'), value('L2'), value('LEN'), value('R1'), value('R2'), value('REN')],
+    'Only needed if your robot is wired differently. Tells the robot which pins drive each motor: two direction pins (IN1 IN2) and a speed pin (ENA). Swap the direction pins if that wheel spins backwards. Leave speed empty for drivers without an enable pin, like the DRV8833.',
   ),
   command(
     'ax_drive',
@@ -581,8 +581,10 @@ export const TOOLBOX = {
       block('ax_motors_setup', {
         L1: num(ROBOT_PINS.motors.L1),
         L2: num(ROBOT_PINS.motors.L2),
+        LEN: num(ROBOT_PINS.motors.LEN),
         R1: num(ROBOT_PINS.motors.R1),
         R2: num(ROBOT_PINS.motors.R2),
+        REN: num(ROBOT_PINS.motors.REN),
       }),
     ]),
     category('Console', 'looks', [

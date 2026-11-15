@@ -79,25 +79,28 @@ def _pin_toggle(pin):
     _pin_out(pin, 1 - _pin_state.get(pin, 0))`,
   },
   motors: {
-    deps: ['time', 'pwm', 'duty'],
-    code: `_motor_pins = {'L': (${ROBOT_PINS.motors.L1}, ${ROBOT_PINS.motors.L2}), 'R': (${ROBOT_PINS.motors.R1}, ${ROBOT_PINS.motors.R2})}
+    deps: ['time', 'Pin', 'pwm', 'duty'],
+    code: `_motor_pins = {'L': (${ROBOT_PINS.motors.L1}, ${ROBOT_PINS.motors.L2}, ${ROBOT_PINS.motors.LEN}), 'R': (${ROBOT_PINS.motors.R1}, ${ROBOT_PINS.motors.R2}, ${ROBOT_PINS.motors.REN})}
 _speeds = {'L': 0, 'R': 0}
 
-def _motors_setup(left1, left2, right1, right2):
-    _motor_pins['L'] = (left1, left2)
-    _motor_pins['R'] = (right1, right2)
+def _motors_setup(left1, left2, left_en, right1, right2, right_en):
+    _motor_pins['L'] = (left1, left2, left_en)
+    _motor_pins['R'] = (right1, right2, right_en)
     _drive(0, 0)
 
 def _motor(side, speed):
-    pins = _motor_pins[side]
+    in1, in2, en = _motor_pins[side]
     _speeds[side] = speed
     duty = _duty(abs(speed))
-    if speed >= 0:
-        _pwm_set(pins[0], 1000, duty)
-        _pwm_set(pins[1], 1000, 0)
+    if en is None:
+        # No enable pin (DRV8833 style): PWM the direction pins.
+        _pwm_set(in1, 1000, duty if speed >= 0 else 0)
+        _pwm_set(in2, 1000, 0 if speed >= 0 else duty)
     else:
-        _pwm_set(pins[0], 1000, 0)
-        _pwm_set(pins[1], 1000, duty)
+        # L298N style: IN pins set direction, the enable pin sets speed.
+        Pin(in1, Pin.OUT).value(1 if speed > 0 else 0)
+        Pin(in2, Pin.OUT).value(1 if speed < 0 else 0)
+        _pwm_set(en, 1000, duty)
 
 def _drive(left, right):
     _motor('L', left)
@@ -343,7 +346,9 @@ const GENERATORS: Record<string, BlockGen> = {
   // Motors
   ax_motors_setup: (b, g) => {
     need(g, 'motors');
-    return `_motors_setup(${['L1', 'L2', 'R1', 'R2'].map((n) => int(b, g, n)).join(', ')})\n`;
+    // An empty speed socket (or a program saved before it existed) means no enable pin.
+    const pin = (n: string) => (n.endsWith('EN') && !g.valueToCode(b, n, Order.NONE) ? 'None' : int(b, g, n));
+    return `_motors_setup(${['L1', 'L2', 'LEN', 'R1', 'R2', 'REN'].map(pin).join(', ')})\n`;
   },
   ax_drive: (b, g) => {
     need(g, 'motors');

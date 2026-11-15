@@ -30,7 +30,7 @@ const CRASH_BLINK_MS = 500;
 /** Start the log afresh past this size so it never fills the flash. */
 const LOG_MAX_BYTES = 4000;
 
-const { L1, L2, R1, R2 } = ROBOT_PINS.motors;
+const MOTOR_PINS = Object.values(ROBOT_PINS.motors).join(', ');
 
 export const MAIN_PY = `# Saved by AXEIS IDE. MicroPython runs this at every power-up.
 # Your program is in program.py; this file starts it and reports problems.
@@ -78,7 +78,7 @@ except Exception as e:
             sys.print_exception(e, f)
     except OSError:
         pass
-    for _p in (${L1}, ${L2}, ${R1}, ${R2}):
+    for _p in (${MOTOR_PINS}):
         Pin(_p, Pin.OUT, value=0)
     for i in range(20):
         _led.value(not _led.value())
