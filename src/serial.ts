@@ -4,6 +4,8 @@
  */
 
 export const BAUD_RATE = 115200;
+/** USB vendor id of Espressif's on-chip USB (ESP32-S2/S3/C3 native port). */
+const ESPRESSIF_USB_VENDOR_ID = 0x303a;
 
 /** The user dismissed the browser's port picker. Not an error worth surfacing. */
 export class PortPickerCancelled extends Error {
@@ -55,10 +57,18 @@ export async function openPort(port: SerialPort): Promise<void> {
     parity: 'none',
     flowControl: 'none',
   });
-  // On ESP32 dev boards DTR/RTS drive the auto-reset circuit (EN and GPIO0).
-  // Left asserted, the board can sit in reset or drop into the ROM bootloader.
+  // On ESP32 dev boards with a USB-serial chip, DTR/RTS drive the auto-reset
+  // circuit (EN and GPIO0). Left asserted, the board can sit in reset or drop
+  // into the ROM bootloader, so both are cleared.
+  //
+  // Espressif's own USB (ESP32-S2/S3/C3 native port) has no such circuit, and
+  // there DTR means "a terminal is listening". With DTR low, MicroPython lets
+  // unread output be overwritten, so long replies (like a file read-back)
+  // arrive with pieces missing. Assert DTR there; RTS stays low so it can
+  // never look like a reset request.
+  const nativeUsb = port.getInfo().usbVendorId === ESPRESSIF_USB_VENDOR_ID;
   try {
-    await port.setSignals({ dataTerminalReady: false, requestToSend: false });
+    await port.setSignals({ dataTerminalReady: nativeUsb, requestToSend: false });
   } catch (err) {
     // Some adapters (e.g. native USB CDC) reject this; the REPL can still work.
     console.warn('[serial] could not clear DTR/RTS', err);
