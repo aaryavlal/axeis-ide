@@ -9,6 +9,12 @@
  *   submit:   <code bytes> 0x04
  *   response: "OK" <stdout> 0x04 <stderr> 0x04 ">"
  *
+ * Code is submitted in raw-paste mode (0x05 'A' 0x01) when the firmware has it:
+ * the device grants the sender a window of bytes at a time, so nothing is lost
+ * on boards with a small receive buffer and no flow control, like the ESP32-S2
+ * and S3 on native USB. Older firmware falls back to plain raw REPL, written in
+ * small, spaced-out pieces.
+ *
  * Output is streamed to the caller as bytes arrive. A program that prints for
  * ten minutes shows output for ten minutes; nothing is buffered to the end.
  */
@@ -17,12 +23,18 @@ const CTRL_A = 0x01;
 const CTRL_B = 0x02;
 const CTRL_C = 0x03;
 const CTRL_D = 0x04;
+const CTRL_E = 0x05;
 
 /** Both the "execute this" byte we send and the EOF marker the device sends. */
 const EOF = CTRL_D;
 
 const RAW_PROMPT_BANNER = 'raw REPL; CTRL-B to exit\r\n>';
 const PROMPT = '>';
+/** What is left of the raw REPL banner after the 2 bytes read as a raw-paste reply. */
+const RAW_BANNER_TAIL = 'w REPL; CTRL-B to exit\r\n>';
+/** Plain raw REPL fallback: write this much, then pause so the device can drain it. */
+const PLAIN_WRITE_BYTES = 256;
+const PLAIN_WRITE_GAP_MS = 10;
 
 /** Bootloader chatter / leftover prompt noise right after the port opens. */
 const DISCARD_WINDOW_MS = 200;
@@ -36,7 +48,7 @@ const PROBE_ATTEMPTS = 2;
 const ACK_TIMEOUT_MS = 2000;
 /** Trailing '>' after a run has already finished; only lateness is an error. */
 const PROMPT_TIMEOUT_MS = 2000;
-/** Raw bytes per file-write submission; keeps each one well inside the REPL's buffer. */
+/** Raw bytes per file-write submission; keeps each snippet short. */
 const WRITE_CHUNK_BYTES = 512;
 
 const encoder = new TextEncoder();
@@ -282,6 +294,11 @@ class PortChannel {
     if (this.ended) throw new ReplConnectionLostError('Serial connection closed');
   }
 
+  /** Bytes received but not yet consumed. */
+  get pending(): number {
+    return this.buffer.length;
+  }
+
   async readExactly(count: number, timeoutMs: number | null): Promise<Uint8Array> {
     while (this.buffer.length < count) {
       await this.waitForData(timeoutMs);
@@ -378,6 +395,8 @@ export class Repl {
   private port: SerialPort | null = null;
   private connected = false;
   private busy = false;
+  /** Whether the firmware supports raw-paste mode; null until the first submission finds out. */
+  private rawPaste: boolean | null = null;
 
   isConnected(): boolean {
     return this.connected;
@@ -401,6 +420,7 @@ export class Repl {
     channel.start();
     this.channel = channel;
     this.port = port;
+    this.rawPaste = null;
 
     channel.startCapture();
     try {
@@ -463,20 +483,9 @@ export class Repl {
     const stderr = new TextDecoder();
 
     try {
-      await channel.write(encoder.encode(code));
-      await channel.write(bytes(CTRL_D));
-
-      const ack = await channel.readExactly(2, ACK_TIMEOUT_MS);
-      if (ack[0] !== 0x4f || ack[1] !== 0x4b) {
-        // No "OK": the device rejected the submission outright. Everything up
-        // to the prompt is the complaint, EOF markers and all.
-        const rest = await channel.readUntil(encoder.encode(PROMPT), ACK_TIMEOUT_MS);
-        const text = stderr.decode(ack) + stderr.decode(rest);
-        const cleaned = normalizeNewlines(text).replace(/\u0004/g, '').trim();
-        yield {
-          stream: 'stderr',
-          data: `${cleaned.length > 0 ? cleaned : 'Device rejected the program'}\n`,
-        };
+      const rejection = await this.submit(channel, encoder.encode(code));
+      if (rejection !== null) {
+        yield { stream: 'stderr', data: `${rejection}\n` };
         return;
       }
 
@@ -498,6 +507,80 @@ export class Repl {
     } finally {
       this.busy = false;
     }
+  }
+
+  /**
+   * Send code from the raw REPL prompt. Resolves to null once the device has
+   * accepted it and is about to run it, or to the device's complaint if it
+   * refused the submission.
+   */
+  private async submit(channel: PortChannel, data: Uint8Array): Promise<string | null> {
+    if (this.rawPaste !== false) {
+      await channel.write(bytes(CTRL_E, 0x41, CTRL_A));
+      const reply = await channel.readExactly(2, ACK_TIMEOUT_MS);
+      if (reply[0] === 0x52 && reply[1] === 0x01) {
+        // "R\x01": raw paste it is.
+        this.rawPaste = true;
+        await this.pasteWrite(channel, data);
+        return null;
+      }
+      // "R\x00" means understood but unsupported, and the device is still
+      // waiting for code. Anything else is firmware from before raw paste,
+      // which re-entered raw mode and printed the banner.
+      if (reply[0] !== 0x52 || reply[1] !== 0x00) {
+        await channel.readUntil(encoder.encode(RAW_BANNER_TAIL), ACK_TIMEOUT_MS);
+      }
+      this.rawPaste = false;
+      console.info('[repl] raw-paste mode unsupported; using plain raw REPL');
+    }
+
+    for (let at = 0; at < data.length; at += PLAIN_WRITE_BYTES) {
+      await channel.write(data.subarray(at, at + PLAIN_WRITE_BYTES));
+      await delay(PLAIN_WRITE_GAP_MS);
+    }
+    await channel.write(bytes(CTRL_D));
+
+    const ack = await channel.readExactly(2, ACK_TIMEOUT_MS);
+    if (ack[0] === 0x4f && ack[1] === 0x4b) return null;
+    // No "OK": the device rejected the submission outright. Everything up to
+    // the prompt is the complaint, EOF markers and all.
+    const rest = await channel.readUntil(encoder.encode(PROMPT), ACK_TIMEOUT_MS);
+    const decoder = new TextDecoder();
+    const text = decoder.decode(ack, { stream: true }) + decoder.decode(rest);
+    const cleaned = normalizeNewlines(text).replace(/\u0004/g, '').trim();
+    return cleaned.length > 0 ? cleaned : 'Device rejected the program';
+  }
+
+  /**
+   * Raw-paste flow control: the device states a window size, and every 0x01 it
+   * sends grants one more window. A 0x04 from the device means it wants the
+   * paste to end early; we acknowledge and it carries on with what it has.
+   */
+  private async pasteWrite(channel: PortChannel, data: Uint8Array): Promise<void> {
+    const header = await channel.readExactly(2, ACK_TIMEOUT_MS);
+    const windowSize = (header[0] as number) | ((header[1] as number) << 8);
+    let remaining = windowSize;
+    let at = 0;
+    while (at < data.length) {
+      while (remaining === 0 || channel.pending > 0) {
+        const [signal] = await channel.readExactly(1, ACK_TIMEOUT_MS);
+        if (signal === CTRL_A) {
+          remaining += windowSize;
+        } else if (signal === EOF) {
+          await channel.write(bytes(EOF));
+          return;
+        } else {
+          throw new ReplError(`Unexpected byte 0x${(signal ?? 0).toString(16)} during raw paste`);
+        }
+      }
+      const piece = data.subarray(at, at + remaining);
+      await channel.write(piece);
+      remaining -= piece.length;
+      at += piece.length;
+    }
+    await channel.write(bytes(EOF));
+    // The device echoes 0x04 once it has the whole paste, then compiles and runs it.
+    await channel.readUntil(bytes(EOF), ACK_TIMEOUT_MS);
   }
 
   /**
