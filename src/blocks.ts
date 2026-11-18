@@ -20,7 +20,7 @@ import 'blockly/blocks'; // math_number, text, variables_*, procedures_*
 export const ROBOT_PINS = {
   // L298N: IN1/IN2 set the left motor's direction and ENA its speed (PWM);
   // IN3/IN4 and ENB do the same for the right motor.
-  motors: { L1: 4, L2: 5, LEN: 6, R1: 7, R2: 15, REN: 16 },
+  motors: { L1: 26, L2: 27, LEN: 25, R1: 32, R2: 33, REN: 13 },
   strip: { pin: 5, count: 8 },
   buzzer: 4,
 } as const;
